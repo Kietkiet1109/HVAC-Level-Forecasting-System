@@ -8,7 +8,8 @@ from plot_draw import (plot_time_trending, plot_best_feature_decomposition,
 
 # Global variables
 warnings.filterwarnings("ignore")
-CSV_PATH = "HVAC_Level_Preprocessed.csv"
+RAW_CSV_PATH = "HVAC_Level.csv"
+PREPROCESSED_CSV_PATH = "HVAC_Level_Preprocessed.csv"
 TARGET = "HVAC_Level"
 THRESHOLD = 3
 N_ROWS = 3
@@ -48,6 +49,32 @@ def convert_date(df):
     return df
 
 
+def implement_back_shifting(df):
+    """
+    Create 2 new columns for back shifting 1 row and 2 rows.
+
+    Parameters:
+        df (pd.DataFrame): Dataframe.
+
+    Returns:
+        df (pd.DataFrame): Dataframe with 2 new back shifting columns.
+    """
+
+    # Back shifting 1 row
+    df['HVAC_Level_t-1'] = df['HVAC_Level'].shift(1)
+
+    # Back shifting 2 row
+    df['HVAC_Level_t-2'] = df['HVAC_Level'].shift(2)
+
+    # Drop any NA value in 2 new columns
+    df.dropna(inplace=True)
+
+    # Create EMA over 3 observations
+    df['EMA_3'] = df['HVAC_Level'].ewm(span=3, adjust=False).mean()
+
+    return df
+
+
 def feature_selection(df):
     """
     Get the top 10 features based on their correlation with HVAC_Level.
@@ -73,9 +100,23 @@ def feature_selection(df):
     return selected_features
 
 
-df = read_csv(CSV_PATH)
+def export_csv(df, path):
+    """
+    Export DataFrame to csv file.
+
+    Parameters:
+        df (pd.DataFrame): Dataframe.
+        path (str): Path for new csv file.
+    """
+
+    df.to_csv(path, index=False)
+
+
+df = read_csv(RAW_CSV_PATH)
 converted_df = convert_date(df)
+final_df = implement_back_shifting(converted_df)
 selected_features = feature_selection(df)
 plot_time_trending(converted_df, selected_features)
 plot_best_feature_decomposition(converted_df)
 plot_selected_features_heatmap(df[selected_features])
+export_csv(final_df, PREPROCESSED_CSV_PATH)
